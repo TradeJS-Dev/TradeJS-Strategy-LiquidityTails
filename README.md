@@ -9,6 +9,10 @@ and trades later rejections or retests. Zone age, touch order, retest distance,
 rejection efficiency, and candle-body rules filter entries; structural stops,
 R targets, and an optional one-step scale-in manage risk.
 
+## Logic at a glance
+
+![LiquidityTails strategy logic](https://raw.githubusercontent.com/TradeJS-Dev/TradeJS-Strategy-LiquidityTails/main/docs/strategy-logic.svg)
+
 ## Install
 
 ```bash
