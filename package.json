@@ -1,7 +1,7 @@
 {
   "name": "@tradejs/strategy-liquidity-tails",
   "version": "3.0.0",
-  "description": "LiquidityTails strategy plugin for TradeJS.",
+  "description": "Liquidity-zone retest strategy built from dominant candle wicks, with touch and age filters, structural risk, and optional scale-in for TradeJS.",
   "type": "module",
   "packageManager": "yarn@4.13.0",
   "engines": {
@@ -12,7 +12,10 @@
     "trading",
     "strategy",
     "plugin",
-    "backtesting"
+    "backtesting",
+    "ai",
+    "claude",
+    "codex"
   ],
   "homepage": "https://tradejs.dev",
   "repository": {
