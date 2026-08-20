@@ -13,6 +13,15 @@ R targets, and an optional one-step scale-in manage risk.
 
 ![LiquidityTails strategy logic](https://raw.githubusercontent.com/TradeJS-Dev/TradeJS-Strategy-LiquidityTails/main/docs/strategy-logic.svg)
 
+## Signal on an example chart
+
+A dominant lower wick first creates persistent liquidity memory; only a later qualified retest and rejection turns that zone into a LONG signal.
+
+![LiquidityTails signal on an illustrative ticker chart](https://raw.githubusercontent.com/TradeJS-Dev/TradeJS-Strategy-LiquidityTails/main/docs/signal-example.svg)
+
+The illustration is schematic, not market data. Exact thresholds, confirmation
+rules, and risk parameters come from the active TradeJS strategy config.
+
 ## Install
 
 ```bash
