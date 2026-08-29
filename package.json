@@ -1,6 +1,6 @@
 {
   "name": "@tradejs/strategy-liquidity-tails",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Liquidity-zone retest strategy built from dominant candle wicks, with touch and age filters, structural risk, and optional scale-in for TradeJS.",
   "type": "module",
   "packageManager": "yarn@4.13.0",
