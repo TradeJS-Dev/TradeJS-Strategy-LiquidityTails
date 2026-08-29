@@ -332,19 +332,8 @@ const getConfigNumbers = (config: LiquidityTailsConfig) => ({
     0,
     Number(config.LIQUIDITY_TAILS_MIN_ORIGIN_VOLUME_REL20 ?? 0),
   ),
-  requireOriginBodyAlignedLong:
-    Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED) &&
-    !Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED_SHORT_ONLY),
-  requireOriginBodyAlignedShort:
-    Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED) ||
-    Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED_SHORT_ONLY),
-  minRetestPenetrationPct: Math.max(
-    0,
-    Number(config.LIQUIDITY_TAILS_MIN_RETEST_PENETRATION_PCT ?? 0),
-  ),
-  minReactionDistanceAtr: Math.max(
-    0,
-    Number(config.LIQUIDITY_TAILS_MIN_REACTION_DISTANCE_ATR ?? 0),
+  requireOriginBodyAligned: Boolean(
+    config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED,
   ),
   closeHoldBarsLong: Math.max(
     0,
@@ -400,8 +389,6 @@ const buildRetestSignal = ({
   maxRetestDistancePct,
   maxEntryZoneAgeBars,
   minRejectionEfficiencyRatio,
-  minRetestPenetrationPct,
-  minReactionDistanceAtr,
   retestOrdinal,
   candidateAction,
   candidateOrdinal,
@@ -418,8 +405,6 @@ const buildRetestSignal = ({
   maxRetestDistancePct: number;
   maxEntryZoneAgeBars: number;
   minRejectionEfficiencyRatio: number;
-  minRetestPenetrationPct: number;
-  minReactionDistanceAtr: number;
   retestOrdinal: number;
   candidateAction: LiquidityTailsCandidateAction;
   candidateOrdinal: number;
@@ -452,9 +437,8 @@ const buildRetestSignal = ({
     : Math.max(0, high - zone.bottom);
   const retestPenetrationPct = (retestDistance / zoneHeight) * 100;
   if (
-    retestPenetrationPct < minRetestPenetrationPct ||
-    (maxRetestDistancePct > 0 &&
-      retestPenetrationPct > maxRetestDistancePct * 100)
+    maxRetestDistancePct > 0 &&
+    retestPenetrationPct > maxRetestDistancePct * 100
   ) {
     return null;
   }
@@ -462,7 +446,6 @@ const buildRetestSignal = ({
   const reactionDistance = isLong
     ? Math.max(0, close - zone.top)
     : Math.max(0, zone.bottom - close);
-  const reactionDistanceAtr = reactionDistance / Math.max(atr, 1e-9);
   const rejectionEfficiencyRatio =
     reactionDistance / Math.max(retestDistance, zoneHeight * 1e-6);
   if (
@@ -470,8 +453,7 @@ const buildRetestSignal = ({
       maxEntryZoneAgeBars > 0 &&
       zoneAgeBars > maxEntryZoneAgeBars) ||
     (minRejectionEfficiencyRatio > 0 &&
-      rejectionEfficiencyRatio < minRejectionEfficiencyRatio) ||
-    reactionDistanceAtr < minReactionDistanceAtr
+      rejectionEfficiencyRatio < minRejectionEfficiencyRatio)
   ) {
     return null;
   }
@@ -598,10 +580,7 @@ export const createLiquidityTailsEngine = ({
     minRejectionEfficiencyRatioLong,
     minRejectionEfficiencyRatioShort,
     minOriginVolumeRel20,
-    requireOriginBodyAlignedLong,
-    requireOriginBodyAlignedShort,
-    minRetestPenetrationPct,
-    minReactionDistanceAtr,
+    requireOriginBodyAligned,
     closeHoldBarsLong,
     closeHoldBarsShort,
     scaleInEnabled,
@@ -689,7 +668,7 @@ export const createLiquidityTailsEngine = ({
       topShadow >= topRatioThreshold &&
       topDominant &&
       originVolumeAllowed &&
-      (!requireOriginBodyAlignedShort || sellOriginBodyAligned) &&
+      (!requireOriginBodyAligned || sellOriginBodyAligned) &&
       state.index - state.lastFireIndex > minGap;
     const buyFire =
       atrReady &&
@@ -697,7 +676,7 @@ export const createLiquidityTailsEngine = ({
       bottomShadow >= bottomRatioThreshold &&
       bottomDominant &&
       originVolumeAllowed &&
-      (!requireOriginBodyAlignedLong || buyOriginBodyAligned) &&
+      (!requireOriginBodyAligned || buyOriginBodyAligned) &&
       state.index - state.lastFireIndex > minGap;
 
     if (sellFire) {
@@ -870,8 +849,6 @@ export const createLiquidityTailsEngine = ({
             zone.direction === "LONG"
               ? minRejectionEfficiencyRatioLong
               : minRejectionEfficiencyRatioShort,
-          minRetestPenetrationPct,
-          minReactionDistanceAtr,
           retestOrdinal,
           candidateAction,
           candidateOrdinal,

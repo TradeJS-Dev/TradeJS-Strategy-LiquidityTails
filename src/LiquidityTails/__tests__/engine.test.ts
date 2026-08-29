@@ -130,9 +130,12 @@ describe("Liquidity Tails engine", () => {
     expect(states.at(-1)?.signal).toBeNull();
   });
 
-  it("requires a full prior-volume window and elevated origin volume", () => {
+  it("accepts an aligned origin at the exact 1.5x volume boundary", () => {
     const engine = createLiquidityTailsEngine({
-      config: makeConfig({ LIQUIDITY_TAILS_MIN_ORIGIN_VOLUME_REL20: 1.5 }),
+      config: makeConfig({
+        LIQUIDITY_TAILS_MIN_ORIGIN_VOLUME_REL20: 1.5,
+        LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED: true,
+      }),
     });
     const warmup = Array.from({ length: 20 }, (_, index) => ({
       ...makeCandle(index, 100, 101, 99, 100),
@@ -140,7 +143,7 @@ describe("Liquidity Tails engine", () => {
     }));
     const origin = {
       ...makeCandle(20, 100, 102, 95, 101),
-      volume: 1_600,
+      volume: 1_500,
     };
     const retest = makeCandle(21, 99.5, 102, 99, 101);
 
@@ -148,7 +151,32 @@ describe("Liquidity Tails engine", () => {
       engine.next(candle as any),
     );
 
-    expect(states.at(-1)?.signal?.zone.originVolumeRel20).toBeCloseTo(1.6);
+    expect(states.at(-1)?.signal?.zone.originVolumeRel20).toBeCloseTo(1.5);
+    expect(states.at(-1)?.signal?.zone.originBodyAligned).toBe(true);
+  });
+
+  it("rejects an aligned origin below the exact 1.5x volume boundary", () => {
+    const engine = createLiquidityTailsEngine({
+      config: makeConfig({
+        LIQUIDITY_TAILS_MIN_ORIGIN_VOLUME_REL20: 1.5,
+        LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED: true,
+      }),
+    });
+    const warmup = Array.from({ length: 20 }, (_, index) => ({
+      ...makeCandle(index, 100, 101, 99, 100),
+      volume: 1_000,
+    }));
+    const origin = {
+      ...makeCandle(20, 100, 102, 95, 101),
+      volume: 1_499,
+    };
+    const retest = makeCandle(21, 99.5, 102, 99, 101);
+
+    const states = [...warmup, origin, retest].map((candle) =>
+      engine.next(candle as any),
+    );
+
+    expect(states.at(-1)?.signal).toBeNull();
   });
 
   it("rejects a direction-conflicted origin candle when required", () => {
@@ -160,71 +188,6 @@ describe("Liquidity Tails engine", () => {
       makeCandle(1, 100, 101, 99, 100),
       makeCandle(2, 101, 102, 95, 100),
       makeCandle(3, 99.5, 102, 99, 101),
-    ];
-
-    const states = candles.map((candle) => engine.next(candle as any));
-
-    expect(states.at(-1)?.signal).toBeNull();
-  });
-
-  it("can require origin-body alignment only for short formations", () => {
-    const config = makeConfig({
-      LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED: false,
-      LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED_SHORT_ONLY: true,
-    });
-    const longEngine = createLiquidityTailsEngine({ config });
-    const shortEngine = createLiquidityTailsEngine({ config });
-    const longCandles = [
-      makeCandle(0, 100, 101, 99, 100),
-      makeCandle(1, 100, 101, 99, 100),
-      makeCandle(2, 101, 102, 95, 100),
-      makeCandle(3, 99.5, 102, 99, 101),
-    ];
-    const shortCandles = [
-      makeCandle(0, 100, 101, 99, 100),
-      makeCandle(1, 100, 101, 99, 100),
-      makeCandle(2, 100, 107, 99, 101),
-      makeCandle(3, 101.5, 106, 99, 100),
-    ];
-
-    const longState = longCandles.reduce(
-      (_, candle) => longEngine.next(candle as any),
-      longEngine.getState(),
-    );
-    const shortState = shortCandles.reduce(
-      (_, candle) => shortEngine.next(candle as any),
-      shortEngine.getState(),
-    );
-
-    expect(longState.signal?.direction).toBe("LONG");
-    expect(shortState.signal).toBeNull();
-  });
-
-  it("rejects a boundary-only touch when minimum penetration is enabled", () => {
-    const engine = createLiquidityTailsEngine({
-      config: makeConfig({ LIQUIDITY_TAILS_MIN_RETEST_PENETRATION_PCT: 5 }),
-    });
-    const candles = [
-      makeCandle(0, 100, 101, 99, 100),
-      makeCandle(1, 100, 101, 99, 100),
-      makeCandle(2, 100, 102, 95, 101),
-      makeCandle(3, 100.5, 102, 100, 101),
-    ];
-
-    const states = candles.map((candle) => engine.next(candle as any));
-
-    expect(states.at(-1)?.signal).toBeNull();
-  });
-
-  it("rejects a close-away reaction smaller than the configured ATR fraction", () => {
-    const engine = createLiquidityTailsEngine({
-      config: makeConfig({ LIQUIDITY_TAILS_MIN_REACTION_DISTANCE_ATR: 0.25 }),
-    });
-    const candles = [
-      makeCandle(0, 100, 101, 99, 100),
-      makeCandle(1, 100, 101, 99, 100),
-      makeCandle(2, 100, 102, 95, 101),
-      makeCandle(3, 100.1, 101, 99, 100.5),
     ];
 
     const states = candles.map((candle) => engine.next(candle as any));

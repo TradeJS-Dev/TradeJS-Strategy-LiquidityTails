@@ -8,7 +8,10 @@ import {
 import { LiquidityTailsConfig } from "../config";
 import { LiquidityTailsSignalContext } from "../engine";
 import { buildLiquidityTailsGuardrailContext } from "../guardrails";
-import { withStrategyLocalAiGateFilter } from "@tradejs/strategy-kit/ai-gate";
+import {
+  getAiPayloadNumber,
+  withStrategyLocalAiGate,
+} from "@tradejs/strategy-kit/ai-gate";
 
 const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === "object" && value != null && !Array.isArray(value)
@@ -209,10 +212,26 @@ Interpretation rules for Liquidity Tails:
     ),
 };
 
-export const liquidityTailsAiAdapter = withStrategyLocalAiGateFilter(
+export const liquidityTailsAiAdapter = withStrategyLocalAiGate(
   liquidityTailsBaseAiAdapter,
   {
-    id: "liquidity_tails_long_only_2026_08_12",
-    allows: ({ signal }) => signal.direction === "LONG",
+    id: "liquidity_tails_h2b_body_volume_own_gate_1_2026_08_29",
+    approves: ({ payload }) => {
+      const top5PctAboveMa20 = getAiPayloadNumber(
+        payload,
+        "additionalIndicators.baseContext.relative.marketBreadths.top5.pctAboveMa20",
+      );
+      const diMinus = getAiPayloadNumber(
+        payload,
+        "additionalIndicators.baseContext.regime.trend.adx.diMinus",
+      );
+
+      return (
+        top5PctAboveMa20 != null &&
+        top5PctAboveMa20 >= 0.5 &&
+        diMinus != null &&
+        diMinus <= 13.3743
+      );
+    },
   },
 );
