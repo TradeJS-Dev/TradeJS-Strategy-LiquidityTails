@@ -312,6 +312,13 @@ const buildLiquidityTailsStateKey = (config: LiquidityTailsConfig) =>
       config.LIQUIDITY_TAILS_MIN_REJECTION_EFFICIENCY_RATIO_LONG,
     minRejectionEfficiencyRatioShort:
       config.LIQUIDITY_TAILS_MIN_REJECTION_EFFICIENCY_RATIO_SHORT,
+    minOriginVolumeRel20: config.LIQUIDITY_TAILS_MIN_ORIGIN_VOLUME_REL20,
+    requireOriginBodyAligned:
+      config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED,
+    requireOriginBodyAlignedShortOnly:
+      config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED_SHORT_ONLY,
+    minRetestPenetrationPct: config.LIQUIDITY_TAILS_MIN_RETEST_PENETRATION_PCT,
+    minReactionDistanceAtr: config.LIQUIDITY_TAILS_MIN_REACTION_DISTANCE_ATR,
     closeHoldBars: config.LIQUIDITY_TAILS_CLOSE_HOLD_BARS,
     closeHoldBarsLong: config.LIQUIDITY_TAILS_CLOSE_HOLD_BARS_LONG,
     closeHoldBarsShort: config.LIQUIDITY_TAILS_CLOSE_HOLD_BARS_SHORT,

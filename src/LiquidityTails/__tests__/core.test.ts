@@ -63,6 +63,8 @@ const makeSignal = ({
       touches: 1,
       lastTouchIndex: 1,
       originVolume: 1_000,
+      originVolumeRel20: 1.5,
+      originBodyAligned: true,
       spent: false,
       traded: true,
       retestsObserved: candidateAction === "initial_entry" ? 1 : 2,

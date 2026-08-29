@@ -16,6 +16,8 @@ export interface LiquidityTailsZone {
   touches: number;
   lastTouchIndex: number;
   originVolume: number;
+  originVolumeRel20: number | null;
+  originBodyAligned: boolean;
   spent: boolean;
   /** Execution is owned by core/runtime and is never inferred by the detector. */
   traded: boolean;
@@ -97,6 +99,7 @@ type EngineState = {
     dueIndex: number;
     holdBars: number;
   } | null;
+  recentVolumes: number[];
   lastTimestamp: number | null;
 };
 
@@ -325,6 +328,24 @@ const getConfigNumbers = (config: LiquidityTailsConfig) => ({
       fallback: 0,
     }),
   ),
+  minOriginVolumeRel20: Math.max(
+    0,
+    Number(config.LIQUIDITY_TAILS_MIN_ORIGIN_VOLUME_REL20 ?? 0),
+  ),
+  requireOriginBodyAlignedLong:
+    Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED) &&
+    !Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED_SHORT_ONLY),
+  requireOriginBodyAlignedShort:
+    Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED) ||
+    Boolean(config.LIQUIDITY_TAILS_REQUIRE_ORIGIN_BODY_ALIGNED_SHORT_ONLY),
+  minRetestPenetrationPct: Math.max(
+    0,
+    Number(config.LIQUIDITY_TAILS_MIN_RETEST_PENETRATION_PCT ?? 0),
+  ),
+  minReactionDistanceAtr: Math.max(
+    0,
+    Number(config.LIQUIDITY_TAILS_MIN_REACTION_DISTANCE_ATR ?? 0),
+  ),
   closeHoldBarsLong: Math.max(
     0,
     Math.floor(
@@ -379,6 +400,8 @@ const buildRetestSignal = ({
   maxRetestDistancePct,
   maxEntryZoneAgeBars,
   minRejectionEfficiencyRatio,
+  minRetestPenetrationPct,
+  minReactionDistanceAtr,
   retestOrdinal,
   candidateAction,
   candidateOrdinal,
@@ -395,6 +418,8 @@ const buildRetestSignal = ({
   maxRetestDistancePct: number;
   maxEntryZoneAgeBars: number;
   minRejectionEfficiencyRatio: number;
+  minRetestPenetrationPct: number;
+  minReactionDistanceAtr: number;
   retestOrdinal: number;
   candidateAction: LiquidityTailsCandidateAction;
   candidateOrdinal: number;
@@ -427,8 +452,9 @@ const buildRetestSignal = ({
     : Math.max(0, high - zone.bottom);
   const retestPenetrationPct = (retestDistance / zoneHeight) * 100;
   if (
-    maxRetestDistancePct > 0 &&
-    retestPenetrationPct > maxRetestDistancePct * 100
+    retestPenetrationPct < minRetestPenetrationPct ||
+    (maxRetestDistancePct > 0 &&
+      retestPenetrationPct > maxRetestDistancePct * 100)
   ) {
     return null;
   }
@@ -436,6 +462,7 @@ const buildRetestSignal = ({
   const reactionDistance = isLong
     ? Math.max(0, close - zone.top)
     : Math.max(0, zone.bottom - close);
+  const reactionDistanceAtr = reactionDistance / Math.max(atr, 1e-9);
   const rejectionEfficiencyRatio =
     reactionDistance / Math.max(retestDistance, zoneHeight * 1e-6);
   if (
@@ -443,7 +470,8 @@ const buildRetestSignal = ({
       maxEntryZoneAgeBars > 0 &&
       zoneAgeBars > maxEntryZoneAgeBars) ||
     (minRejectionEfficiencyRatio > 0 &&
-      rejectionEfficiencyRatio < minRejectionEfficiencyRatio)
+      rejectionEfficiencyRatio < minRejectionEfficiencyRatio) ||
+    reactionDistanceAtr < minReactionDistanceAtr
   ) {
     return null;
   }
@@ -498,6 +526,8 @@ export const buildLiquidityTailsSignalContext = (
   zoneScaleInCandidatesEmitted: signal.zone.scaleInCandidatesEmitted,
   zoneRetestOrdinal: signal.retestOrdinal,
   originVolume: signal.zone.originVolume,
+  originVolumeRel20: signal.zone.originVolumeRel20,
+  originBodyAligned: signal.zone.originBodyAligned,
   currentPrice: signal.close,
   atr: signal.atr,
   wickBodyRatio: signal.wickBodyRatio,
@@ -567,6 +597,11 @@ export const createLiquidityTailsEngine = ({
     maxEntryZoneAgeBarsShort,
     minRejectionEfficiencyRatioLong,
     minRejectionEfficiencyRatioShort,
+    minOriginVolumeRel20,
+    requireOriginBodyAlignedLong,
+    requireOriginBodyAlignedShort,
+    minRetestPenetrationPct,
+    minReactionDistanceAtr,
     closeHoldBarsLong,
     closeHoldBarsShort,
     scaleInEnabled,
@@ -581,6 +616,7 @@ export const createLiquidityTailsEngine = ({
     zones: [],
     signal: null,
     pendingEntry: null,
+    recentVolumes: [],
     lastTimestamp: null,
   };
 
@@ -630,17 +666,38 @@ export const createLiquidityTailsEngine = ({
     const bottomRatioThreshold = minWickRatioLong * candleBody;
     const topDominant = topShadow > bottomShadow * wickDominanceShort;
     const bottomDominant = bottomShadow > topShadow * wickDominanceLong;
+    const priorVolumeAverage = state.recentVolumes.length
+      ? state.recentVolumes.reduce((sum, value) => sum + value, 0) /
+        state.recentVolumes.length
+      : null;
+    const originVolumeRel20 =
+      Number.isFinite(volume) &&
+      priorVolumeAverage != null &&
+      priorVolumeAverage > 0
+        ? volume / priorVolumeAverage
+        : null;
+    const originVolumeAllowed =
+      minOriginVolumeRel20 <= 0 ||
+      (state.recentVolumes.length === 20 &&
+        originVolumeRel20 != null &&
+        originVolumeRel20 >= minOriginVolumeRel20);
+    const sellOriginBodyAligned = close < open;
+    const buyOriginBodyAligned = close > open;
     const sellFire =
       atrReady &&
       topShadow >= atrThreshold &&
       topShadow >= topRatioThreshold &&
       topDominant &&
+      originVolumeAllowed &&
+      (!requireOriginBodyAlignedShort || sellOriginBodyAligned) &&
       state.index - state.lastFireIndex > minGap;
     const buyFire =
       atrReady &&
       bottomShadow >= atrThreshold &&
       bottomShadow >= bottomRatioThreshold &&
       bottomDominant &&
+      originVolumeAllowed &&
+      (!requireOriginBodyAlignedLong || buyOriginBodyAligned) &&
       state.index - state.lastFireIndex > minGap;
 
     if (sellFire) {
@@ -659,6 +716,8 @@ export const createLiquidityTailsEngine = ({
         touches: 0,
         lastTouchIndex: 0,
         originVolume: Number.isFinite(volume) ? volume : 0,
+        originVolumeRel20,
+        originBodyAligned: sellOriginBodyAligned,
         spent: false,
         traded: false,
         retestsObserved: 0,
@@ -687,6 +746,8 @@ export const createLiquidityTailsEngine = ({
         touches: 0,
         lastTouchIndex: 0,
         originVolume: Number.isFinite(volume) ? volume : 0,
+        originVolumeRel20,
+        originBodyAligned: buyOriginBodyAligned,
         spent: false,
         traded: false,
         retestsObserved: 0,
@@ -809,6 +870,8 @@ export const createLiquidityTailsEngine = ({
             zone.direction === "LONG"
               ? minRejectionEfficiencyRatioLong
               : minRejectionEfficiencyRatioShort,
+          minRetestPenetrationPct,
+          minReactionDistanceAtr,
           retestOrdinal,
           candidateAction,
           candidateOrdinal,
@@ -860,6 +923,11 @@ export const createLiquidityTailsEngine = ({
           }
         }
       }
+    }
+
+    if (Number.isFinite(volume) && volume > 0) {
+      state.recentVolumes.push(volume);
+      if (state.recentVolumes.length > 20) state.recentVolumes.shift();
     }
 
     return {
