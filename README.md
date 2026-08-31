@@ -6,8 +6,9 @@ TradeJS strategy plugin providing `LiquidityTails`.
 
 `LiquidityTails` turns dominant candle wicks into persistent liquidity zones
 and trades later rejections or retests. Zone age, touch order, retest distance,
-rejection efficiency, and candle-body rules filter entries; structural stops,
-R targets, and an optional one-step scale-in manage risk.
+rejection efficiency, relative origin volume, and candle-body rules filter
+entries. Structural stops, R targets, and an optional one-step scale-in manage
+risk.
 
 ## Logic at a glance
 
@@ -42,6 +43,10 @@ The package exports `strategyEntries` for the TradeJS plugin loader together
 with its strategy definitions, manifests, default configs, and public AI/ML
 adapters. Strategy implementation changes are released from this repository,
 independently of the TradeJS engine.
+
+With deterministic `AI_MODE: "gate"`, the current local gate requires broad
+participation among the five largest market assets and a low negative
+directional indicator reading. Missing required context rejects the entry.
 
 ## Development
 
