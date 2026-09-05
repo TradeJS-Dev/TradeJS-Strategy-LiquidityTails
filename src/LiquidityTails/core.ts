@@ -154,9 +154,9 @@ const getProjectedAverage = ({
 const buildExecutionStateKey = (config: LiquidityTailsConfig) =>
   JSON.stringify({
     maxLossValue: config.MAX_LOSS_VALUE,
-    feePercent: config.FEE_PERCENT,
-    slippageBaseBps: config.SLIPPAGE_BASE_BPS,
-    slippageMarketImpactBps: config.SLIPPAGE_MARKET_IMPACT_BPS,
+    feePercent: config.RISK_FEE_RATE,
+    slippageBaseBps: config.RISK_SLIPPAGE_BPS,
+    slippageMarketImpactBps: config.RISK_MARKET_IMPACT_BPS,
     targetR: config.LIQUIDITY_TAILS_TARGET_R_MULT,
     targetRLong: config.LIQUIDITY_TAILS_TARGET_R_MULT_LONG,
     targetRShort: config.LIQUIDITY_TAILS_TARGET_R_MULT_SHORT,
@@ -363,11 +363,11 @@ export const createLiquidityTailsCore: CreateStrategyCore<
       state.engine.next(candle),
     );
   const maxLossValue = Math.max(0, Number(config.MAX_LOSS_VALUE ?? 0));
-  const feeRate = Math.max(0, Number(config.FEE_PERCENT ?? 0));
+  const feeRate = Math.max(0, Number(config.RISK_FEE_RATE ?? 0));
   const slippageBps = Math.max(
     0,
-    Number(config.SLIPPAGE_BASE_BPS ?? 0) +
-      Number(config.SLIPPAGE_MARKET_IMPACT_BPS ?? 0),
+    Number(config.RISK_SLIPPAGE_BPS ?? 0) +
+      Number(config.RISK_MARKET_IMPACT_BPS ?? 0),
   );
   const executionCostRate = feeRate + slippageBps / 10_000;
   const scaleInEnabled = Boolean(config.LIQUIDITY_TAILS_SCALE_IN_ENABLED);

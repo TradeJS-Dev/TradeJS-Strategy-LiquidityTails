@@ -144,7 +144,7 @@ const makeCoreConfig = (overrides: Partial<LiquidityTailsConfig> = {}) =>
   ({
     ...DEFAULT_CONFIG,
     MAX_LOSS_VALUE: 10,
-    FEE_PERCENT: 0,
+    RISK_FEE_RATE: 0,
     LIQUIDITY_TAILS_STOP_ATR_BUFFER_MULT: 0,
     LIQUIDITY_TAILS_STOP_BUFFER_PCT: 0,
     LIQUIDITY_TAILS_TARGET_R_MULT: 1.6,
@@ -498,7 +498,7 @@ describe("LiquidityTails core scale-in cycle", () => {
     });
     const core = await createLiquidityTailsCore({
       config: makeCoreConfig({
-        FEE_PERCENT: 0.001,
+        RISK_FEE_RATE: 0.001,
         LIQUIDITY_TAILS_SCALE_IN_ENABLED: false,
         LIQUIDITY_TAILS_INITIAL_RISK_FRACTION: 1,
       }),
